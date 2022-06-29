@@ -116,7 +116,9 @@ impl App {
 
 
 fn create_server(mut cx: FunctionContext) -> JsResult<JsString> {
-    Ok(cx.string("hello node"))
+    let callback = cx.argument::<JsFunction>(0)?;
+    let s: Handle<JsString> = callback.call_with(&cx).apply(&mut cx)?;
+    Ok(s)
 }
 
 #[neon::main]
