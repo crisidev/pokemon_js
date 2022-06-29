@@ -40,7 +40,12 @@ pub mod types {
     pub use aws_smithy_types::DateTime;
 }
 
-use std::{net::SocketAddr, sync::{Arc, Mutex}};
+use std::{
+    any::Any,
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+};
 
 use crate::{error::*, input::*, operation_registry::OperationRegistryBuilder, output::*};
 use aws_smithy_http_server::{AddExtensionLayer, Router};
@@ -114,15 +119,41 @@ impl App {
     }
 }
 
+fn register_operations(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+    let mut handler_map = HashMap::new();
+    let operations_handlers_handle: Handle<JsObject> = cx.argument(0)?;
+    let operation_handlers =
+        operations_handlers_handle.downcast_or_throw::<JsObject, _>(&mut cx)?;
+    let property_names = operation_handlers.get_own_property_names(&mut cx)?;
+    let v = property_names.to_vec(&mut cx)?;
+    for value in v.iter() {
+        let key = value.downcast::<JsString, _>(&mut cx).unwrap();
+        let key_as_string: String = key.value(&mut cx);
+        let obj = operation_handlers.get::<JsFunction, _, _>(&mut cx, key_as_string.as_str())?;
+        handler_map.insert(key_as_string, Arc::new(obj));
+    }
+    println!("HM: {:#?}", handler_map);
+    Ok(cx.undefined())
+}
 
-fn create_server(mut cx: FunctionContext) -> JsResult<JsString> {
-    let callback = cx.argument::<JsFunction>(0)?;
-    let s: Handle<JsString> = callback.call_with(&cx).apply(&mut cx)?;
-    Ok(s)
+// create_server :: ( () -> Promise<HashMap<String, Function>> ) -> Undefined
+fn create_server(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+    let operation_handlers_promise_handle: Handle<JsObject> = cx
+        .argument::<JsFunction>(0)?
+        .call_with(&mut cx)
+        .this(cx.null())
+        .apply::<JsObject, _>(&mut cx)?;
+    operation_handlers_promise_handle
+        .get::<JsFunction, _, _>(&mut cx, "then")?
+        .call_with(&mut cx)
+        .this(operation_handlers_promise_handle)
+        .arg(JsFunction::new(&mut cx, register_operations)?)
+        .apply::<JsPromise, _>(&mut cx)?;
+    Ok(cx.undefined())
 }
 
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
-    cx.export_function("hello", create_server)?;
+    cx.export_function("createServer", create_server)?;
     Ok(())
 }
