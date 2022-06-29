@@ -136,6 +136,14 @@ fn register_operations(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     Ok(cx.undefined())
 }
 
+fn get_pokemon_species_input(mut cx: FunctionContext) -> JsResult<JsObject> {
+    let args: Handle<JsString> = cx.argument(0)?;
+    let name = args.value(&mut cx);
+    let input = GetPokemonSpeciesInput::builder().name(name).build().unwrap();
+    let obj = input.to_object(&mut cx)?;
+    Ok(obj)
+}
+
 // create_server :: ( () -> Promise<HashMap<String, Function>> ) -> Undefined
 fn create_server(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     let operation_handlers_promise_handle: Handle<JsObject> = cx
@@ -155,5 +163,6 @@ fn create_server(mut cx: FunctionContext) -> JsResult<JsUndefined> {
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
     cx.export_function("createServer", create_server)?;
+    cx.export_function("GetPokemonSpeciesInput", get_pokemon_species_input)?;
     Ok(())
 }
