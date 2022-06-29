@@ -8,7 +8,7 @@ edition = "2021"
 
 [lib]
 name = "pokemon_service_sdk_js"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies.async-trait]
 version = "0.1"
